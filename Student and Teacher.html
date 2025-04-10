@@ -1,0 +1,313 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Student-Teacher Booking System</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f0f0f0;
+        }
+        .container {
+            width: 50%;
+            margin: 50px auto;
+            background: #fff;
+            padding: 20px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+            border-radius: 8px;
+        }
+        h2, h3 {
+            text-align: center;
+        }
+        input, select, textarea, button {
+            width: 100%;
+            margin-bottom: 10px;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        button {
+            background-color: #4caf50;
+            color: white;
+            border: none;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        #teacher-list, #appointment-list, #appointment-requests, #student-approvals, #message-section {
+            margin-top: 20px;
+        }
+        .message-box {
+            border: 1px solid #ccc;
+            padding: 10px;
+            background-color: #f9f9f9;
+            max-height: 200px;
+            overflow-y: auto;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container" id="auth-section">
+        <h2>Student-Teacher Booking System</h2>
+        <input type="email" id="email" placeholder="Email" required />
+        <input type="password" id="password" placeholder="Password" required />
+        <select id="role">
+            <option value="student">Student</option>
+            <option value="teacher">Teacher</option>
+            <option value="admin">Admin</option>
+        </select>
+        <button onclick="login()">Login</button>
+        <p>Don't have an account? <a href="#" onclick="showRegistration()">Register</a></p>
+    </div>
+
+    <div class="container" id="registration-section" style="display:none;">
+        <h2>Register</h2>
+        <input type="text" id="reg-name" placeholder="Full Name" required />
+        <input type="email" id="reg-email" placeholder="Email" required />
+        <input type="password" id="reg-password" placeholder="Password" required />
+        <select id="reg-role">
+            <option value="student">Student</option>
+            <option value="teacher">Teacher</option>
+        </select>
+        <button onclick="register()">Register</button>
+        <p>Already have an account? <a href="#" onclick="showLogin()">Login</a></p>
+    </div>
+
+    <div class="container" id="dashboard" style="display:none;">
+        <h2 id="dashboard-title"></h2>
+        <div id="student-section" style="display:none;">
+            <h3>Search Teacher</h3>
+            <input type="text" id="search-teacher" placeholder="Search by Subject" />
+            <button onclick="searchTeacher()">Search</button>
+            <div id="teacher-list"></div>
+
+            <h3>Book Appointment</h3>
+            <input type="datetime-local" id="appointment-time" />
+            <textarea id="message" placeholder="Enter appointment purpose"></textarea>
+            <button onclick="bookAppointment()">Book Appointment</button>
+
+            <h3>Your Appointments</h3>
+            <div id="appointment-list"></div>
+
+            <h3>Send Message to Teacher</h3>
+            <select id="teacher-select"></select>
+            <textarea id="message-text" placeholder="Enter your message"></textarea>
+            <button onclick="sendMessage()">Send Message</button>
+
+            <h3>Message History</h3>
+            <div class="message-box" id="message-box"></div>
+        </div>
+
+        <div id="teacher-section" style="display:none;">
+            <h3>Appointment Requests</h3>
+            <div id="appointment-requests"></div>
+
+            <h3>Messages from Students</h3>
+            <div class="message-box" id="teacher-messages"></div>
+        </div>
+
+        <div id="admin-section" style="display:none;">
+            <h3>Add Teacher</h3>
+            <input type="text" id="teacher-name" placeholder="Name" />
+            <input type="text" id="department" placeholder="Department" />
+            <input type="text" id="subject" placeholder="Subject" />
+            <button onclick="addTeacher()">Add Teacher</button>
+
+            <h3>Approve Student Registration</h3>
+            <div id="student-approvals"></div>
+        </div>
+        <button onclick="logout()">Logout</button>
+    </div>
+
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
+
+    <script>
+        // Firebase Configuration
+        const firebaseConfig = {
+            apiKey: "YOUR_API_KEY",
+            authDomain: "your-project.firebaseapp.com",
+            projectId: "your-project-id",
+            storageBucket: "your-project.appspot.com",
+            messagingSenderId: "your-messaging-id",
+            appId: "your-app-id"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+        const auth = firebase.auth();
+
+        let currentUserId, currentUserRole;
+
+        // Show Registration Form
+        function showRegistration() {
+            document.getElementById('auth-section').style.display = 'none';
+            document.getElementById('registration-section').style.display = 'block';
+        }
+
+        // Show Login Form
+        function showLogin() {
+            document.getElementById('registration-section').style.display = 'none';
+            document.getElementById('auth-section').style.display = 'block';
+        }
+
+        // Register New User
+        function register() {
+            const email = document.getElementById('reg-email').value;
+            const password = document.getElementById('reg-password').value;
+            const name = document.getElementById('reg-name').value;
+            const role = document.getElementById('reg-role').value;
+
+            auth.createUserWithEmailAndPassword(email, password)
+                .then((userCredential) => {
+                    const user = userCredential.user;
+                    db.collection('users').doc(user.uid).set({
+                        name: name,
+                        email: email,
+                        role: role,
+                        approved: role === 'student' ? false : true
+                    }).then(() => {
+                        alert('Registration successful! Wait for admin approval.');
+                        showLogin();
+                    });
+                })
+                .catch((error) => alert(error.message));
+        }
+
+        // User Login
+        function login() {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+
+            auth.signInWithEmailAndPassword(email, password)
+                .then((userCredential) => {
+                    const user = userCredential.user;
+                    currentUserId = user.uid;
+                    loadDashboard(user.uid);
+                })
+                .catch((error) => alert(error.message));
+        }
+
+        // Load Dashboard Based on Role
+        function loadDashboard(uid) {
+            db.collection('users').doc(uid).get().then((doc) => {
+                if (doc.exists) {
+                    const userData = doc.data();
+                    currentUserRole = userData.role;
+                    if (!userData.approved) {
+                        alert('Your account is pending approval.');
+                        auth.signOut();
+                        return;
+                    }
+                    document.getElementById('auth-section').style.display = 'none';
+                    document.getElementById('dashboard').style.display = 'block';
+                    document.getElementById('dashboard-title').innerText = `Welcome, ${userData.name}`;
+
+                    if (userData.role === 'student') {
+                        document.getElementById('student-section').style.display = 'block';
+                        loadAppointments(uid);
+                        loadTeacherList();
+                        loadMessageHistory(uid);
+                    } else if (userData.role === 'teacher') {
+                        document.getElementById('teacher-section').style.display = 'block';
+                        loadRequests(uid);
+                        loadTeacherMessages(uid);
+                    } else if (userData.role === 'admin') {
+                        document.getElementById('admin-section').style.display = 'block';
+                        loadApprovals();
+                    }
+                }
+            });
+        }
+
+        // Logout User
+        function logout() {
+            auth.signOut().then(() => {
+                document.getElementById('dashboard').style.display = 'none';
+                document.getElementById('auth-section').style.display = 'block';
+            });
+        }
+
+        // Add Teacher (Admin)
+        function addTeacher() {
+            const name = document.getElementById('teacher-name').value;
+            const department = document.getElementById('department').value;
+            const subject = document.getElementById('subject').value;
+
+            db.collection('teachers').add({
+                name, department, subject, available: true
+            }).then(() => alert('Teacher added successfully!'));
+        }
+
+        // Load Approvals (Admin)
+        function loadApprovals() {
+            db.collection('users').where('approved', '==', false).get().then((querySnapshot) => {
+                let output = '';
+                querySnapshot.forEach((doc) => {
+                    const data = doc.data();
+                    output += `
+                        <p>${data.name} - ${data.email}</p>
+                        <button onclick="approveUser('${doc.id}')">Approve</button>
+                    `;
+                });
+                document.getElementById('student-approvals').innerHTML = output;
+            });
+        }
+
+        // Approve User
+        function approveUser(id) {
+            db.collection('users').doc(id).update({ approved: true })
+                .then(() => {
+                    alert('User approved successfully!');
+                    loadApprovals();
+                });
+        }
+
+        // Load Teachers for Students
+        function loadTeacherList() {
+            db.collection('teachers').get().then((querySnapshot) => {
+                let options = '<option value="">Select Teacher</option>';
+                querySnapshot.forEach((doc) => {
+                    const data = doc.data();
+                    options += `<option value="${doc.id}">${data.name} - ${data.subject}</option>`;
+                });
+                document.getElementById('teacher-select').innerHTML = options;
+            });
+        }
+
+        // Send Message
+        function sendMessage() {
+            const teacherId = document.getElementById('teacher-select').value;
+            const messageText = document.getElementById('message-text').value;
+
+            db.collection('messages').add({
+                senderId: currentUserId,
+                receiverId: teacherId,
+                message: messageText,
+                timestamp: new Date()
+            }).then(() => {
+                alert('Message sent!');
+                loadMessageHistory(currentUserId);
+            });
+        }
+
+        // Load Message History
+        function loadMessageHistory(uid) {
+            db.collection('messages')
+                .where('senderId', '==', uid)
+                .get()
+                .then((querySnapshot) => {
+                    let output = '';
+                    querySnapshot.forEach((doc) => {
+                        const data = doc.data();
+                        output += `<p>${data.message} (To: ${data.receiverId})</p>`;
+                    });
+                    document.getElementById('message-box').innerHTML = output;
+                });
+        }
+    </script>
+</body>
+</html>
