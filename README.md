@@ -17,7 +17,7 @@ This project proposes a **web-based student-teacher appointment booking system**
 
 ---
 
-## 🛠 Technologies Used
+## Technologies Used
 
 | Technology | Description                    |
 |------------|--------------------------------|
@@ -52,7 +52,7 @@ This project proposes a **web-based student-teacher appointment booking system**
 
 ##Frontend (HTML/CSS/JS) ↓ Firebase Auth ←→ Firestore DB ↓ Role-based Routing (Student / Teacher / Admin Dashboard
 
-## 📊 Project Evaluation Metrics
+## Project Evaluation Metrics
 
 | Metric          | Description                                                                 |
 |------------------|-----------------------------------------------------------------------------|
